@@ -1,0 +1,211 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>新浪微博</title>
+<style>
+* { padding: 0; margin: 0; }
+li { list-style: none; }
+body { background: #f9f9f9; font-size: 14px; }
+
+#box { width: 450px; padding: 10px; border: 1px solid #ccc; background: #f4f4f4; margin: 10px auto; }
+#fill_in { margin-bottom: 10px; }
+#fill_in li { padding: 5px 0; }
+#fill_in .text { width: 380px; height: 30px; padding: 0 10px; border: 1px solid #ccc; line-height: 30px; font-size: 14px; font-family: arial; }
+#fill_in textarea { width: 380px; height: 100px; line-height: 20px; padding: 5px 10px; border: 1px solid #ccc; font-size: 14px; font-family: arial; overflow: auto; vertical-align: top; }
+#fill_in .btn { border: none; width: 100px; height: 30px; border: 1px solid #ccc; background: #fff; color: #666; font-size: 14px; position: relative; left: 42px; }
+
+#message_text h3 { font-size: 14px; padding: 6px 0 4px 10px; background: #ddd; border-bottom: 1px solid #ccc; }
+#message_text li { background: #f9f9f9; border-bottom: 1px solid #ccc; color: #666; overflow: hidden;display: none;}
+#message_text li a{ float:right;}
+#message_text h3 { padding: 10px; font-size: 14px; line-height: 24px; }
+#message_text p { padding: 0 10px 10px; text-indent: 28px; line-height: 20px;}
+
+.page{overflow: hidden;line-height: 20px;}
+.page>div{float: left;}
+.page a{padding: 0 5px;}
+.page a.active{color: red}
+</style>
+</head>
+<body>
+<div id="box">
+    <ul id="fill_in">
+        <form>
+            <li>姓名：<input id="txt1" type="text" class="text" /></li>
+            <li>内容：<textarea id="txt2"></textarea></li>
+            <li><input id="btn" type="button" value="提交" class="btn" /></li>
+        </form>
+    </ul>
+    <div id="message_text">
+        <h2>显示留言</h2>
+        <ul id="notes">
+        	<!-- <li><h3>名字</h3><p>内容<a href="###">删除</a></p></li> -->
+        </ul>
+    </div>
+    <div class="page">
+        <div class="prev"><a href="###">上一页</a></div>
+        <div class="pages">
+            <!-- <a class="active" href="###">1</a>
+            <a href="###">2</a>
+            <a href="###">3</a> -->
+        </div>
+        <div class="next"><a href="###">下一页</a></div>
+    </div>
+</div>
+</body>
+<script type="text/javascript" src="jquery-3.0.0.min.js"></script>
+<script type="text/javascript" src="jquery.easing.min.js"></script>
+<script type="text/javascript">
+var $name = $("#txt1");//姓名
+var $con = $("#txt2");//内容
+var $btn = $("#btn");//提交按钮
+var $ul = $("#message_text ul");//显示留言的ul
+
+var page = 1;
+var num = 5;
+var len = 0;
+//提交内容
+$btn.on("click",function(){
+    $.ajax({
+        type:'get',
+        url:"index.php",
+        data:{type:"add",name:$name.val(),con:$con.val()},
+        dataType:"json",
+        success:function(data){
+            // getData();
+            if(data.error==0){
+                $li = $('<li><h3>'+$name.val()+'</h3><p>'+$con.val()+'<a dataid='+data.id+' href="###">删除</a></p></li>');
+                $ul.prepend($li);
+                $li.slideDown();
+                //添加一条数据后这一页多了一条，然后删除最后一条数据
+                $ul.children().last().slideUp(function(){
+                    //动画结束后删除最后一个LI
+                    $(this).remove();
+                })
+                pageFn();
+                getData();
+            }
+        }
+    })
+})
+
+
+getData();
+function getData() {
+    $.ajax({
+        type:"get",
+        url:"index.php",
+        data:{type:"get",page:page,num:num},
+        dataType:"json",
+        success:function(json){
+            console.log(json);
+            if (json.error==0) {
+                $ul.html("");
+                for (var i = 0; i < json.data.length; i++) {                    
+                    var $li = $('<li><h3>'+json.data[i].name+'</h3><p>'+json.data[i].con+'<a dataid='+json.data[i].id+' href="###">删除</a></p></li>');   
+                    $ul.append($li);
+                    $li.show();
+                    var $a = $li.find("a");
+                    $a.on("click",function(){
+                        var $li = $(this).parents('li');
+                        del($(this).attr('dataid'),$li);
+                        if($("#notes").find("li").length==1){
+                            page = page-1;//删除最后一页的最后一条数据跳转到最后一页
+                            getData();
+                            changeA();
+                        }
+                    })
+                }
+            }else{
+                alert("没有数据");
+            }
+        },
+        error:function(){
+            alert("请求失败！")
+        }
+    })
+}
+//删除数据函数
+function del(id,$li){
+    $.ajax({
+        type:"get",
+        url:'index.php',
+        data:{type:"del",id:id},
+        dataType:"json",
+        success:function(data){
+            if (data.error==0) {
+                $li.slideUp(function(){
+                    $li.remove();
+                    getData();
+                    pageFn();
+                })
+            }
+        }
+    })
+}
+
+
+pageFn()
+//分页函数
+function pageFn(){
+    $.ajax({
+        type:"get",
+        url:"index.php",
+        data:{type:"count"},
+        dataType:"json",
+        success:function(data){
+            len = Math.ceil(data.count/num);
+            $('.pages').html("");
+            for (var i = 0; i < len; i++) {
+                var $a = $('<a href="###">'+(i+1)+'</a>');
+                $('.pages').append($a);
+                $a.on("click",function(){
+                    page = $(this).text();//获取跳转后的页码
+                    getData();//显示跳转后的页码内容
+                    changeA();//跳转页码高亮
+                })
+            }
+            changeA();//当前页码高亮
+        }
+    })
+}
+//上一页
+$(".prev").on("click",function(){
+    page--;
+    if (page<1) {page=1;return;}
+    changeA()
+    getData();
+})
+//下一页
+$(".next").on("click",function(){
+    page++;
+    if (page>len) {page=len;return;}
+    changeA()
+    getData();
+})
+//切换选中样式显示现在第几页
+function changeA(){
+    $(".pages a").removeClass("active");
+    $(".pages a").eq(page-1).addClass("active");
+}
+
+   
+
+   
+    
+
+   
+
+</script>
+</html>
+
+
+
+
+
+
+
+
+
+
+
